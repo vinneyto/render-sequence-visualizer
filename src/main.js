@@ -11,6 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
         paper.innerHTML = renderSequence(sequence);
       } catch (e) {
         paper.innerHTML = e.toString();
+        throw e;
       }
     }
   });
@@ -27,7 +28,7 @@ function renderSequence(sequence) {
   console.log(scene);
 
   return `
-    <svg width="${scene.width}" height="${scene.height}">
+    <svg width="${scene.width}" height="${scene.height + ITEM_HEIGHT}">
       <g transform="translate(0, ${ITEM_HEIGHT})">
       ${scene.passes
         .map((pass) => {
@@ -96,12 +97,20 @@ function renderSequence(sequence) {
 }
 
 function calcVertOffset(passes, i) {
-  return (
-    (ITEM_HEIGHT + GAP_VERT) * i +
-    (i > 0
-      ? (passes[i - 1].subpasses.length - 1) * (ITEM_HEIGHT + GAP_VERT)
-      : 0)
-  );
+  let offset = 0;
+
+  for (let j = 0; j < i; j++) {
+    offset += passes[j].subpasses.length * (ITEM_HEIGHT + GAP_VERT);
+  }
+
+  return offset;
+
+  // return (
+  //   (ITEM_HEIGHT + GAP_VERT) * i +
+  //   (i > 0
+  //     ? (passes[i - 1].subpasses.length - 1) * (ITEM_HEIGHT + GAP_VERT)
+  //     : 0)
+  // );
 }
 
 function buildScene(sequence) {
@@ -186,12 +195,16 @@ function buildScene(sequence) {
 
         const from = { x: sceneOutput.x, y: sceneOutput.y };
         const to = { x: sceneInput.x, y: sceneInput.y };
+        const distX = Math.abs(from.x - to.x) / 2;
+        const distY = Math.abs(from.y - to.y) / 2;
         const c1 =
           from.x < to.x
-            ? { x: from.x + 32, y: from.y }
-            : { x: from.x, y: from.y + 32 };
+            ? { x: from.x + distX, y: from.y }
+            : { x: from.x, y: from.y + distY };
         const c2 =
-          from.x < to.x ? { x: to.x - 32, y: to.y } : { x: to.x, y: to.y - 32 };
+          from.x < to.x
+            ? { x: to.x - distX, y: to.y }
+            : { x: to.x, y: to.y - distY };
 
         joins.push({
           from,
@@ -254,7 +267,7 @@ function getSubPassInputTextureId(sequence, pass, subpass, name) {
   const otherSubpass = pass.subpasses.find(
     (p) => p.name === input.subpass.name
   );
-  const otherSubpassOutput = otherSubpass.input.find(
+  const otherSubpassOutput = otherSubpass.output.find(
     (a) => a.name === input.subpass.output
   );
 
@@ -264,263 +277,3 @@ function getSubPassInputTextureId(sequence, pass, subpass, name) {
 function getAttachmentId(pass, subpass, att) {
   return `${pass.name}:${subpass.name}:${att.name}`;
 }
-
-/*
-{
-    "passes": [
-        {
-            "input": [],
-            "output": [
-                {
-                    "subpass": {
-                        "name": "main",
-                        "output": "color"
-                    },
-                    "name": "color"
-                },
-                {
-                    "subpass": {
-                        "name": "main",
-                        "output": "depth"
-                    },
-                    "name": "depth"
-                }
-            ],
-            "subpasses": [
-                {
-                    "name": "main",
-                    "input": [],
-                    "output": [
-                        {
-                            "name": "color"
-                        },
-                        {
-                            "name": "depth"
-                        }
-                    ],
-                    "background": {
-                        "alpha": 0
-                    },
-                    "clear": [
-                        "color",
-                        "depth"
-                    ]
-                }
-            ],
-            "name": "main"
-        },
-        {
-            "input": [
-                {
-                    "pass": {
-                        "name": "main",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "output": [
-                {
-                    "subpass": {
-                        "name": "composition",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "subpasses": [
-                {
-                    "name": "composition",
-                    "input": [
-                        {
-                            "passInput": "color",
-                            "name": "colorMap"
-                        }
-                    ],
-                    "output": [
-                        {
-                            "name": "color"
-                        }
-                    ],
-                    "uniforms": [
-                        {
-                            "name": "resolution",
-                            "value": "uniform_resolution"
-                        }
-                    ],
-                    "shader": {
-                        "type": "shader_screen",
-                        "transparent": true
-                    },
-                    "clear": [
-                        "color"
-                    ]
-                }
-            ],
-            "name": "composition"
-        },
-        {
-            "input": [
-                {
-                    "pass": {
-                        "name": "composition",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "output": [
-                {
-                    "subpass": {
-                        "name": "fxaa",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "subpasses": [
-                {
-                    "name": "fxaa",
-                    "input": [
-                        {
-                            "passInput": "color",
-                            "name": "colorMap"
-                        }
-                    ],
-                    "output": [
-                        {
-                            "target": "target_frame",
-                            "name": "color"
-                        }
-                    ],
-                    "uniforms": [
-                        {
-                            "name": "resolution",
-                            "value": "uniform_resolution"
-                        }
-                    ],
-                    "shader": {
-                        "type": "shader_fxaa"
-                    },
-                    "clear": [
-                        "color"
-                    ]
-                }
-            ],
-            "name": "fxaa"
-        },
-        {
-            "input": [
-                {
-                    "pass": {
-                        "name": "fxaa",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "output": [
-                {
-                    "subpass": {
-                        "name": "grid",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "subpasses": [
-                {
-                    "name": "intervals",
-                    "input": [
-                        {
-                            "passInput": "color",
-                            "name": "color"
-                        }
-                    ],
-                    "output": [
-                        {
-                            "target": "target_frame",
-                            "name": "color"
-                        }
-                    ],
-                    "clear": [
-                        "depth"
-                    ]
-                },
-                {
-                    "name": "grid",
-                    "input": [
-                        {
-                            "subpass": {
-                                "name": "intervals",
-                                "output": "color"
-                            },
-                            "name": "color"
-                        }
-                    ],
-                    "output": [
-                        {
-                            "target": "target_frame",
-                            "name": "color"
-                        }
-                    ],
-                    "clear": [
-                        "depth"
-                    ]
-                }
-            ],
-            "name": "overlay"
-        },
-        {
-            "input": [
-                {
-                    "pass": {
-                        "name": "overlay",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "output": [
-                {
-                    "subpass": {
-                        "name": "screen",
-                        "output": "color"
-                    },
-                    "name": "color"
-                }
-            ],
-            "subpasses": [
-                {
-                    "name": "screen",
-                    "input": [
-                        {
-                            "passInput": "color",
-                            "name": "colorMap"
-                        }
-                    ],
-                    "output": [
-                        {
-                            "target": "screen",
-                            "name": "color"
-                        }
-                    ],
-                    "uniforms": [
-                        {
-                            "name": "resolution",
-                            "value": "uniform_resolution"
-                        }
-                    ],
-                    "shader": {
-                        "type": "shader_screen"
-                    },
-                    "clear": [
-                        "color"
-                    ]
-                }
-            ],
-            "name": "screen"
-        }
-    ]
-}
-*/
